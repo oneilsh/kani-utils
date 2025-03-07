@@ -38,7 +38,8 @@ ks.initialize_app_config(
             "Get Help": "https://github.com/.../issues",
             "Report a Bug": "https://github.com/.../issues",
             "About": "StreamlitKani is a Streamlit-based UI for Kani agents.",
-        }
+        },
+    share_chat_ttl_seconds = 60*60*24*0.5, # 60 days
 )
 
 

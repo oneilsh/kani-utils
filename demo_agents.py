@@ -13,7 +13,6 @@ import pandas as pd
 from pandasql import sqldf
 import requests
 
-
 # StreamlitKani agents are Kani agents and work the same
 # We must subclass StreamlitKani instead of Kani to get the Streamlit UI
 class AuthorSearchKani(StreamlitKani):

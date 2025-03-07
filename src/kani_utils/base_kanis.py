@@ -3,7 +3,6 @@ from kani import Kani
 from kani_utils.kani_streamlit_server import UIOnlyMessage
 import streamlit as st
 
-
 class EnhancedKani(Kani):
     def __init__(self,
                  *args,
@@ -64,6 +63,7 @@ class StreamlitKani(EnhancedKani):
 
 
     def render_delayed_messages(self):
+        """Used by the server when the agent is done with its turn to render any delayed messages."""
         self.display_messages.extend(self.delayed_display_messages)
         self.delayed_display_messages = []
 
@@ -72,8 +72,9 @@ class StreamlitKani(EnhancedKani):
         st.markdown(self.description)
 
         cost = self.get_convo_cost()
+
         if cost is not None:
             st.markdown(f"""
-                        ### Conversation Cost: {cost:.2f}
+                        ### Conversation Cost: ${(0.01 + cost if cost > 0 else 0.00):.2f}
                         Prompt tokens: {self.tokens_used_prompt}, Completion tokens: {self.tokens_used_completion}
                         """)

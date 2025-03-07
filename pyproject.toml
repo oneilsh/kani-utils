@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kani-utils"
-version = "1.1.0"
+version = "1.2.0"
 description = "kani-utils"
 authors = ["Shawn T. O'Neil <shawn@tislab.org>"]
 license = "MIT"
@@ -10,7 +10,7 @@ readme = "README.md"
 python = "^3.10"
 click = "*"
 importlib-metadata = "^4.8.0"
-streamlit = "^1.30.0"
+streamlit = ">=1.30.0"
 pandasql = "^0.7.3"
 pandas = "^2.1.4"
 python-dotenv = "^1.0.0"
@@ -20,6 +20,9 @@ multidict = "^6.0.5"
 kani = {extras = ["openai"], version = "^1.0.2"}
 nest-asyncio = "^1.6.0"
 requests = "^2.32.3"
+upstash-redis = "^1.2.0"
+dill = "^0.3.9"
+redis = "^5.2.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = {version = ">=7.1.2"}

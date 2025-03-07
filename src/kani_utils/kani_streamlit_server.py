@@ -1,37 +1,32 @@
 import streamlit as st
 import logging
 from kani import ChatRole, ChatMessage
-from kani.streaming import StreamManager
 import asyncio
-import json
 import asyncio
-import nest_asyncio
-from typing import Generator
+from upstash_redis import Redis
+import base64
+import dill
+import hashlib
+import urllib.parse
+from kani_utils.utils import _seconds_to_days_hours, _sync_generator_from_kani_streammanager
+
 
 class UIOnlyMessage:
-    """
-    Represents a that will be displayed in the UI only.
-
-    Attributes:
-        data (Any): The data of the message.
-        role (ChatRole, optional): The role of the message. Defaults to ChatRole.ASSISTANT.
-        icon (str, optional): The icon of the message. Defaults to "📊".
-    """
-
-    def __init__(self, func, role=ChatRole.ASSISTANT, icon="📊", type = "ui_element"):
-        self.func = func
+    def __init__(self, func, role=ChatRole.ASSISTANT, icon="💡", type = "ui_element"):
+        self.func = func # the function that will render the UI element
         self.role = role
         self.icon = icon
-        self.type = type
+        self.type = type # the type of message, e.g. "ui_element" or "tool_use"
 
 
 def initialize_app_config(**kwargs):
     _initialize_session_state(**kwargs)
 
-    # this is kind of a hack, we want the user to be able to configure the default setting for 
-    # this which needs to be set in the session state, so we pass in kwargs above, but it can't 
-    # go to set_page_config below, so we remove it here
+    # this is kind of a hack, we want the user to be able to configure the default settings for
+    # which needs to be set in the session state, so we pass in kwargs to _initialize_session_state() above, but they can't 
+    # go to set_page_config below, so we remove them here
     del kwargs["show_function_calls"]
+    del kwargs["share_chat_ttl_seconds"]
 
     defaults = {
         "page_title": "Kani AI",
@@ -44,6 +39,9 @@ def initialize_app_config(**kwargs):
             "About": "Agent Smith (AI) is a framework for developing tool-using AI-based chatbots.",
         }
     }
+
+    # set the page title to the session_state as we'll need it later
+    st.session_state.page_title = kwargs.get("page_title", defaults["page_title"])
 
     st.set_page_config(
         **{**defaults, **kwargs}
@@ -81,6 +79,8 @@ def _initialize_session_state(**kwargs):
     st.session_state.setdefault("default_api_key", None)  # Store the original API key
     st.session_state.setdefault("ui_disabled", False)
     st.session_state.setdefault("lock_widgets", False)
+    ttl_seconds = kwargs.get("share_chat_ttl_seconds", 60*60*24*30)  # 30 days default
+    st.session_state.setdefault("share_chat_ttl_seconds", ttl_seconds)
 
     if "show_function_calls" in kwargs:
         st.session_state.setdefault("show_function_calls", kwargs["show_function_calls"])
@@ -132,39 +132,11 @@ def _render_message(message):
     return current_action
 
 
-def _sync_generator_from_kani_streammanager(kani_stream: StreamManager) -> Generator:
-    """
-    Converts an asynchronous Kani StreamManager to a synchronous generator.
-    """
-
-    nest_asyncio.apply()
-
-    loop = asyncio.get_event_loop()
-    queue = asyncio.Queue()
-
-    async def put_items_in_queue():
-        async for item in kani_stream:
-            await queue.put(item)
-        await queue.put(None)  # Sentinel to signal the end of the queue
-
-    async def runner():
-        await put_items_in_queue()
-
-    def generator():
-        asyncio.ensure_future(runner())
-
-        while True:
-            item = loop.run_until_complete(queue.get())
-            if item is None:  # Check for the sentinel value
-                break
-            yield item
-
-    return generator()
-
 
 # Handle chat input and responses
 async def _handle_chat_input():
-    if prompt := st.chat_input(disabled=st.session_state.lock_widgets, on_submit=_lock_ui):
+    #if prompt := st.chat_input(disabled=st.session_state.lock_widgets, on_submit=_lock_ui):
+    if prompt := st.chat_input(disabled=False, on_submit=_lock_ui):
         # get current agent
         agent = st.session_state.agents[st.session_state.current_agent_name]
 
@@ -222,22 +194,30 @@ async def _handle_chat_input():
         agent.display_messages.append(render_context)
 
         # unlock and rerun to clean rerender
-        st.session_state.lock_widgets = False  # Step 5: Unlock the UI
+        st.session_state.lock_widgets = False  # Step 5: Unlock the UI        
         st.rerun()
 
-def _clear_chat_all_agents():
-    set_app_agents(st.session_state.agents_func, reinit = True)
 
 # Lock the UI when user submits input
 def _lock_ui():
     st.session_state.lock_widgets = True
 
-# Main Streamlit UI
-async def _main():
+
+def _clear_chat_current_agent():
+    current_agent_name = st.session_state.current_agent_name
+    agents_dict = st.session_state.agents_func()
+    st.session_state.agents[current_agent_name] = agents_dict[current_agent_name]
+
+    st.session_state.current_agent = agents_dict[current_agent_name]
+
+
+def _render_sidebar():
     current_agent = st.session_state.agents[st.session_state.current_agent_name]
 
     with st.sidebar:
         agent_names = list(st.session_state.agents.keys())
+
+        ## First: teh dropdown of agent selections
         current_agent_name = st.selectbox(label = "**Assistant**", 
                                           options=agent_names, 
                                           key="current_agent_name", 
@@ -245,10 +225,7 @@ async def _main():
                                           label_visibility="visible")
 
 
-        # if current_agent has a get_convo_cost method:
-        print(type(current_agent))
-        print(hasattr(current_agent, "render_streamlit_ui"))
-
+        ## then the agent gets to render its sidebar info
         if hasattr(current_agent, "render_sidebar"):
            current_agent.render_sidebar()
 
@@ -257,26 +234,153 @@ async def _main():
         st.markdown("#")
         st.markdown("#")
 
-        st.button(label = "Clear All Chats", 
-                  on_click=_clear_chat_all_agents, 
-                  disabled=st.session_state.lock_widgets)
+        ## global UI elements
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.button(label = "Clear Chat", 
+                      on_click=_clear_chat_current_agent, 
+                      disabled=st.session_state.lock_widgets,
+                      use_container_width=True)
+            
+        # Try to get the database size from redis and log it
+        dbsize = None
+        try:
+            redis = Redis.from_env()
+            dbsize = redis.dbsize()
+            st.session_state.logger.info(f"Shared chats DB size: {dbsize}")
+
+        except Exception as e:
+            st.session_state.logger.error(f"Error connecting to database, or no database to connect to.")
         
-        st.checkbox("🛠️ Show full context options", 
+        if dbsize is not None:
+            with col2:
+                st.button(label = "Share Chat",
+                          on_click=_share_chat,
+                          disabled=st.session_state.lock_widgets,
+                          use_container_width=True)
+        
+        st.checkbox("🛠️ Show full context", 
                     key="show_function_calls", 
                     disabled=st.session_state.lock_widgets)
         
         st.markdown("---")
 
 
+def _share_chat():
+    try:
+        current_agent = st.session_state.agents[st.session_state.current_agent_name]
+
+        agent_model = current_agent.engine.model if current_agent.engine.model else "Unknown"
+
+        to_save = {"display_messages": current_agent.display_messages,
+                   "agent_name": current_agent.name,
+                   "agent_greeting": current_agent.greeting,
+                   "agent_description": current_agent.description,
+                   "agent_system_prompt": current_agent.system_prompt,
+                   "agent_chat_cost": current_agent.get_convo_cost(),
+                   "agent_avatar": current_agent.avatar,
+                   "agent_model": agent_model}
+
+        bytes_rep = dill.dumps(to_save)
+        str_rep = base64.b64encode(bytes_rep).decode('utf-8')
+
+        redis = Redis.from_env()
+
+        # we need a unique session ID for this chat as an alphanumeric hex string
+        # need to safely url encode the current_agent.name to avoid issues; need proper data cleaning
+        key = st.session_state.page_title + "@" + current_agent.name + "@" + hashlib.md5(str_rep.encode()).hexdigest()
+        url = urllib.parse.quote(key)
+        ttl_seconds = st.session_state.share_chat_ttl_seconds
+        redis.set(key, str_rep, ex=ttl_seconds)
+
+
+        ttl_human = _seconds_to_days_hours(ttl_seconds)
+
+        @st.dialog("Share Chat")
+        def share_dialog():
+            st.write(f"Chat saved. Share this link: [Chat Link](/?session_id={url})\n\nThis link will expire in {ttl_human}. Any visit to the URL will reset the timer.")
+
+        share_dialog()
+
+    except Exception as e:
+        st.write(f"Error saving chat.")
+
+
+# Main Streamlit UI
+async def _main():
+
+    if "session_id" in st.query_params:
+        session_id = st.query_params["session_id"]
+
+        try:
+            redis = Redis.from_env()
+            str_rep = redis.get(session_id)
+            
+            if str_rep is None:
+                # throw an exception to trigger the error message
+                raise ValueError(f"Session ID {session_id} not found in database")
+            
+            ttl_human = _seconds_to_days_hours(redis.ttl(session_id))
+            bytes_rep = base64.b64decode(str_rep.encode('utf-8'))
+            to_load = dill.loads(bytes_rep)
+
+            display_messages = to_load["display_messages"]
+            agent_name = to_load["agent_name"]
+            agent_greeting = to_load["agent_greeting"]
+            agent_description = to_load["agent_description"]
+            agent_system_prompt = to_load["agent_system_prompt"]
+            agent_chat_cost = to_load["agent_chat_cost"]
+            agent_avatar = to_load["agent_avatar"]
+            agent_model = to_load["agent_model"]
+            
+            # override show_function_calls to False, but only once
+            if "first_func_calls_off_flag" not in st.session_state:
+                st.session_state.show_function_calls = False
+                st.session_state.first_func_calls_off_flag = True
+
+
+            # write the system prompt as an expander
+            with st.expander("Details"):
+                st.markdown(f"##### This chat record will expire in {ttl_human}. Revisiting this URL will reset the expiration timer.")
+                st.markdown(f"**Chat Cost:** ${0.01 + agent_chat_cost:.2f}")
+                st.markdown("**Agent Description:** " + str(agent_description))
+                st.markdown("**Agent Model:** " + str(agent_model))
+                st.markdown("**Agent System Prompt:**\n```\n" + str(agent_system_prompt) + "\n```")
+                # chat cost rounded up to nearest 0.01
         
+                # render checkbox for showing function calls
+                st.checkbox("🛠️ Show full message contexts", 
+                            key="show_function_calls",
+                            value = False)
 
 
-    st.header(current_agent.name)
+            st.header(agent_name)
 
-    with st.chat_message("assistant", avatar = current_agent.avatar):
-        st.write(current_agent.greeting)
+            with st.chat_message("assistant", avatar = agent_avatar):
+                st.write(agent_greeting)
 
-    for message in current_agent.display_messages:
-        _render_message(message)
+            for message in display_messages:
+                _render_message(message)
 
-    await _handle_chat_input()
+        except Exception as e:
+            st.session_state.logger.error(f"Error connecting to Redis: {e}")
+            st.write(f"Error connecting to database.")
+
+    else:
+        _render_sidebar()
+
+        current_agent = st.session_state.agents[st.session_state.current_agent_name]
+
+        st.header(current_agent.name)
+
+        with st.chat_message("assistant", avatar = current_agent.avatar):
+            st.write(current_agent.greeting)
+
+        for message in current_agent.display_messages:
+            _render_message(message)
+
+        await _handle_chat_input()
+
+
+
