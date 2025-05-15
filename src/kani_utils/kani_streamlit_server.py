@@ -265,7 +265,7 @@ def _render_sidebar():
             st.session_state.logger.info(f"Shared chats DB size: {dbsize}")
 
         except Exception as e:
-            st.session_state.logger.error(f"Error connecting to database, or no database to connect to.")
+            st.session_state.logger.error(f"Error connecting to database, or no database to connect to. Error:\n{e}")
         
         if dbsize is not None:
             with col2:
