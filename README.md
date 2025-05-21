@@ -257,6 +257,7 @@ Use Streamlit's [publishing functionality](https://docs.streamlit.io/deploy/stre
 
 
 # Changelog
+ - 1.6.0: Change cost to dollars per million tokens
  - 1.5.0: 
    - Add features for saving system state on chat share (currently unused)
    - Add .update_system_prompt() convenience function, and example of system-prompt-editable agent

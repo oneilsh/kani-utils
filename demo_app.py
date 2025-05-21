@@ -53,6 +53,7 @@ engine = OpenAIEngine(os.environ["OPENAI_API_KEY"], model="gpt-4o")
 
 # We also have to define a function that returns a dictionary of agents to serve
 # Agents are keyed by their name, which is what the user will see in the UI
+# cost is in dollars per 1000000 tokens
 def get_agents():
     return {
             "Author Search Agent": AuthorSearchKani(engine, prompt_tokens_cost = 0.005, completion_tokens_cost = 0.015),

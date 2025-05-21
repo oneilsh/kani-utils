@@ -38,7 +38,7 @@ class EnhancedKani(Kani):
         if self.prompt_tokens_cost is None or self.completion_tokens_cost is None:
             return None
         
-        return (self.tokens_used_prompt / 1000.0) * self.prompt_tokens_cost + (self.tokens_used_completion / 1000.0) * self.completion_tokens_cost
+        return (self.tokens_used_prompt / 1000000.0) * self.prompt_tokens_cost + (self.tokens_used_completion / 1000000.0) * self.completion_tokens_cost
 
     # https://github.com/zhudotexe/kani/issues/29#issuecomment-2140905232
     async def add_completion_to_history(self, completion):
