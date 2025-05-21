@@ -374,7 +374,7 @@ def _share_chat():
 
     except Exception as e:
         st.write(f"Error saving chat.")
-        st.session_state.logger.error(f"Error saving chat. Traceback: {e.__traceback__}")
+        st.session_state.logger.error(f"Error saving chat. Traceback: {e.__traceback__.format_exc()}")
         st.session_state.logger.error(f"Unpicklable objects: {_get_unpicklable(st.session_state)}")
 
 
