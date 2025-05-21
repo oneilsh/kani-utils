@@ -294,13 +294,15 @@ def _get_unpicklable(obj):
         unpicklable_str = f"Cannot pickle: {e}"
         if hasattr(obj, "__dict__"):
             for k, v in obj.__dict__.items():
-                unpicklable_str += "\n" + _get_unpicklable(v)
+                unpicklable_str += "\nObj __dict__ entry: " + _get_unpicklable(v)
         elif isinstance(obj, (list, tuple, set)):
             for idx, item in enumerate(obj):
-                unpicklable_str += "\n" + _get_unpicklable(item)
+                unpicklable_str += "\nObj list/tuple/set entry: " + _get_unpicklable(item)
         elif isinstance(obj, dict):
             for k, v in obj.items():
-                unpicklable_str += "\n" + _get_unpicklable(v)
+                unpicklable_str += "\nObj dict or other entry: " + _get_unpicklable(v)
+        else:
+            unpicklable_str += f"\Obj: {obj}"
         return unpicklable_str
 
 
