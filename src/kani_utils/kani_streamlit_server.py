@@ -306,17 +306,18 @@ def _get_unpicklable(obj):
         return unpicklable_str
 
 
-import pickle, copyreg, ssl
-
-def save_sslcontext(obj):
-    return obj.__class__, (obj.protocol,)
-
-copyreg.pickle(ssl.SSLContext, save_sslcontext)
-
+import copyreg, ssl, socket
 
 def _share_chat():
     try:
         current_agent = st.session_state.agents[st.session_state.current_agent_name]
+
+        def save_context(obj):
+            return obj.__class__, (obj.protocol,)
+
+        copyreg.pickle(ssl.SSLContext, save_context)
+        copyreg.pickle(socket, save_context)
+
 
         session_state_bytes_rep = dill.dumps(st.session_state)
         session_state_str_rep = base64.b64encode(session_state_bytes_rep).decode('utf-8')
