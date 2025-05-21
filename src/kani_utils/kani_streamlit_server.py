@@ -284,6 +284,21 @@ def _render_sidebar():
         
         st.markdown("---")
 
+def find_unpicklable(obj, path="root"):
+    try:
+        dill.dumps(obj)
+    except Exception as e:
+        print(f"Cannot pickle at {path}: {e}")
+        if hasattr(obj, "__dict__"):
+            for k, v in obj.__dict__.items():
+                find_unpicklable(v, f"{path}.{k}")
+        elif isinstance(obj, (list, tuple, set)):
+            for idx, item in enumerate(obj):
+                find_unpicklable(item, f"{path}[{idx}]")
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                find_unpicklable(v, f"{path}[{repr(k)}]")
+
 
 def _share_chat():
     try:
@@ -354,7 +369,8 @@ def _share_chat():
 
     except Exception as e:
         st.write(f"Error saving chat.")
-        st.session_state.logger.error(f"Error saving chat. Traceback: {e.with_traceback()}")
+        st.session_state.logger.error(f"Error saving chat. Traceback: {e.__traceback__}")
+        st.session_state.logger.error(f"Unpicklable objects: {find_unpicklable(st.session_state)}")
 
 
 def _render_shared_chat():
