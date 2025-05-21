@@ -306,6 +306,13 @@ def _get_unpicklable(obj):
         return unpicklable_str
 
 
+import pickle, copyreg, ssl
+
+def save_sslcontext(obj):
+    return obj.__class__, (obj.protocol,)
+
+copyreg.pickle(ssl.SSLContext, save_sslcontext)
+
 
 def _share_chat():
     try:
