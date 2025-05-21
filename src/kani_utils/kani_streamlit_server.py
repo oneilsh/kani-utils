@@ -354,6 +354,7 @@ def _share_chat():
 
     except Exception as e:
         st.write(f"Error saving chat.")
+        st.session_state.logger.error(f"Error saving chat: {e}")
 
 
 def _render_shared_chat():
