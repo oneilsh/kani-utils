@@ -11,6 +11,7 @@ from kani_utils.utils import _seconds_to_days_hours, _sync_generator_from_kani_s
 import json
 import datetime
 import os
+import traceback
 
 class UIOnlyMessage:
     def __init__(self, func, role=ChatRole.ASSISTANT, icon="💡", type = "ui_element"):
@@ -285,49 +286,42 @@ def _render_sidebar():
         st.markdown("---")
 
 
-def _get_unpicklable(obj):
-    """Returns a string representation of the unpicklable objects in the given object, with indentation."""
-    try:
-        dill.dumps(obj)
-        return ""
-    except Exception as e:
-        unpicklable_str = f"Cannot pickle: {e}"
-        if hasattr(obj, "__dict__"):
-            for k, v in obj.__dict__.items():
-                unpicklable_str += "\nObj __dict__ entry: " + _get_unpicklable(v)
-        elif isinstance(obj, (list, tuple, set)):
-            for idx, item in enumerate(obj):
-                unpicklable_str += "\nObj list/tuple/set entry: " + _get_unpicklable(item)
-        elif isinstance(obj, dict):
-            for k, v in obj.items():
-                unpicklable_str += "\nObj dict or other entry: " + _get_unpicklable(v)
-        else:
-            unpicklable_str += f"\Obj: {obj}"
-        return unpicklable_str
+# def _get_unpicklable(obj):
+#     """Returns a string representation of the unpicklable objects in the given object, with indentation."""
+#     try:
+#         dill.dumps(obj)
+#         return ""
+#     except Exception as e:
+#         unpicklable_str = f"Cannot pickle: {e}"
+#         if hasattr(obj, "__dict__"):
+#             for k, v in obj.__dict__.items():
+#                 unpicklable_str += "\nObj __dict__ entry: " + _get_unpicklable(v)
+#         elif isinstance(obj, (list, tuple, set)):
+#             for idx, item in enumerate(obj):
+#                 unpicklable_str += "\nObj list/tuple/set entry: " + _get_unpicklable(item)
+#         elif isinstance(obj, dict):
+#             for k, v in obj.items():
+#                 unpicklable_str += "\nObj dict or other entry: " + _get_unpicklable(v)
+#         else:
+#             unpicklable_str += f"\Obj: {obj}"
+#         return unpicklable_str
 
 
-import copyreg, ssl, socket
+# import copyreg, ssl, socket
 
 def _share_chat():
     try:
         current_agent = st.session_state.agents[st.session_state.current_agent_name]
 
-        def save_context(obj):
-            return obj.__class__, (obj.protocol,)
-
-        copyreg.pickle(ssl.SSLContext, save_context)
-        copyreg.pickle(socket, save_context)
-
-
-        session_state_bytes_rep = dill.dumps(st.session_state)
-        session_state_str_rep = base64.b64encode(session_state_bytes_rep).decode('utf-8')
+        #session_state_bytes_rep = dill.dumps(st.session_state)
+        #session_state_str_rep = base64.b64encode(session_state_bytes_rep).decode('utf-8')
 
         ## encode the chat data
         chat_data_dict = {"display_messages": current_agent.display_messages,
                    "agent_greeting": current_agent.greeting,
                    "agent_system_prompt": current_agent.system_prompt,
                    "agent_avatar": current_agent.avatar,
-                   "session_state": session_state_str_rep,
+                  # "session_state": session_state_str_rep,
                    }
 
         chat_data_bytes_rep = dill.dumps(chat_data_dict)
@@ -383,9 +377,9 @@ def _share_chat():
         share_dialog()
 
     except Exception as e:
-        st.write(f"Error saving chat.")
-        st.session_state.logger.error(f"Error saving chat. Traceback: {e}")
-        st.session_state.logger.error(f"Unpicklable objects: {_get_unpicklable(st.session_state)}")
+        st.warning('Error saving chat.', icon="⚠️")
+        st.session_state.logger.error(f"Error saving chat. Traceback: {traceback.format_exc()}")
+        # st.session_state.logger.error(f"Unpicklable objects: {_get_unpicklable(st.session_state)}")
 
 
 def _render_shared_chat():
@@ -420,9 +414,9 @@ def _render_shared_chat():
         agent_avatar = chat_data["agent_avatar"]
 
         # load session state
-        st_session_state_str_rep = chat_data["session_state"]
-        st_session_state_bytes_rep = base64.b64decode(st_session_state_str_rep.encode('utf-8'))
-        st.session_state = dill.loads(st_session_state_bytes_rep)
+        #st_session_state_str_rep = chat_data["session_state"]
+        #st_session_state_bytes_rep = base64.b64decode(st_session_state_str_rep.encode('utf-8'))
+        #st.session_state = dill.loads(st_session_state_bytes_rep)
 
         # load other metadata
         agent_name = session_dict["agent_name"]
