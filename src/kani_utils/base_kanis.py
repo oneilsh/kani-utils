@@ -60,12 +60,12 @@ class StreamlitKani(EnhancedKani):
         #self.buttons = []
 
 
-    def render_in_streamlit_chat(self, func, delay = True):
+    def render_in_streamlit_chat(self, func, delay = True, share_func = None):
         """Renders UI components in the chat. Takes a function that takes no parameters that should render the elements."""
         if not delay:
-            self.display_messages.append(UIOnlyMessage(func))
+            self.display_messages.append(UIOnlyMessage(func, share_func = share_func))
         else:
-            self.delayed_display_messages.append(UIOnlyMessage(func))
+            self.delayed_display_messages.append(UIOnlyMessage(func, share_func = share_func))
 
 
     def render_delayed_messages(self):
@@ -80,7 +80,7 @@ class StreamlitKani(EnhancedKani):
         cost = self.get_convo_cost()
 
         if cost is not None:
+
             st.markdown(f"""
                         ### Conversation Cost: ${(0.01 + cost if cost > 0 else 0.00):.2f}
-                        Prompt tokens: {self.tokens_used_prompt}, Completion tokens: {self.tokens_used_completion}
-                        """)
+                        """, help = f"""Prompt tokens: {self.tokens_used_prompt}, Completion tokens: {self.tokens_used_completion}""")

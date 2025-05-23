@@ -14,11 +14,12 @@ import os
 import traceback
 
 class UIOnlyMessage:
-    def __init__(self, func, role=ChatRole.ASSISTANT, icon="💡", type = "ui_element"):
+    def __init__(self, func, role=ChatRole.ASSISTANT, icon="💡", type = "ui_element", share_func = None):
         self.func = func # the function that will render the UI element
         self.role = role
         self.icon = icon
         self.type = type # the type of message, e.g. "ui_element" or "tool_use"
+        self.share_func = share_func # a backup function to use for sharing the chat (some UI elements are not serializable)
 
 
 def initialize_app_config(**kwargs):
@@ -286,42 +287,33 @@ def _render_sidebar():
         st.markdown("---")
 
 
-# def _get_unpicklable(obj):
-#     """Returns a string representation of the unpicklable objects in the given object, with indentation."""
-#     try:
-#         dill.dumps(obj)
-#         return ""
-#     except Exception as e:
-#         unpicklable_str = f"Cannot pickle: {e}"
-#         if hasattr(obj, "__dict__"):
-#             for k, v in obj.__dict__.items():
-#                 unpicklable_str += "\nObj __dict__ entry: " + _get_unpicklable(v)
-#         elif isinstance(obj, (list, tuple, set)):
-#             for idx, item in enumerate(obj):
-#                 unpicklable_str += "\nObj list/tuple/set entry: " + _get_unpicklable(item)
-#         elif isinstance(obj, dict):
-#             for k, v in obj.items():
-#                 unpicklable_str += "\nObj dict or other entry: " + _get_unpicklable(v)
-#         else:
-#             unpicklable_str += f"\Obj: {obj}"
-#         return unpicklable_str
-
-
-# import copyreg, ssl, socket
-
 def _share_chat():
     try:
         current_agent = st.session_state.agents[st.session_state.current_agent_name]
 
-        #session_state_bytes_rep = dill.dumps(st.session_state)
-        #session_state_str_rep = base64.b64encode(session_state_bytes_rep).decode('utf-8')
+        session_state_bytes_rep = dill.dumps(st.session_state)
+        session_state_str_rep = base64.b64encode(session_state_bytes_rep).decode('utf-8')
+
+        # we need to loop over the display messages, and if any of them are UIOnlyMessages, and they have a share_func,
+        # we need to overwrite func to be the share_func
+        display_messages = []
+        for i, message in enumerate(current_agent.display_messages):
+            if isinstance(message, UIOnlyMessage):
+                # if the message has a share_func, use that instead of the func
+                message_copy = UIOnlyMessage(message.func, role=message.role, icon=message.icon, type=message.type)
+                if message.share_func is not None:
+                    message_copy.func = message.share_func
+
+                display_messages.append(message_copy)
+            else:
+                display_messages.append(message)
 
         ## encode the chat data
-        chat_data_dict = {"display_messages": current_agent.display_messages,
+        chat_data_dict = {"display_messages": display_messages,
                    "agent_greeting": current_agent.greeting,
                    "agent_system_prompt": current_agent.system_prompt,
                    "agent_avatar": current_agent.avatar,
-                  # "session_state": session_state_str_rep,
+                   "session_state": session_state_str_rep,
                    }
 
         chat_data_bytes_rep = dill.dumps(chat_data_dict)
@@ -329,7 +321,7 @@ def _share_chat():
 
         # generate chat summary
         async def summarize():
-            agent_based_summary_prompt = "I am preparing to share this chat with others. Please summarize it in a few sentences."
+            agent_based_summary_prompt = "I am preparing to share this chat with others. Please summarize it in a few sentences. Use 3rd person, neutral tone."
             agent_based_summary = await current_agent.chat_round_str(agent_based_summary_prompt)
             return agent_based_summary
         
@@ -340,11 +332,6 @@ def _share_chat():
 
         # generate convo key, and compute access count (0 if new)
         key = st.session_state.page_title + "@" + current_agent.name + "@" + hashlib.md5(chat_data_str_rep.encode()).hexdigest()
-        keycheck = redis.get(key)
-
-        access_count = 0
-        if keycheck is not None:
-            access_count = keycheck["access_count"] + 1
 
         # computed metadata
         agent_model = current_agent.engine.model if current_agent.engine.model else "Unknown"
@@ -357,7 +344,7 @@ def _share_chat():
                      "agent_chat_cost": convo_cost,
                      "agent_model": agent_model,
                      "agent_description": current_agent.description,
-                     "access_count": access_count,
+                     "access_count": 0,
                      "chat_data": chat_data_str_rep,
                      "chat_date": current_date_str,
                      }
@@ -414,9 +401,9 @@ def _render_shared_chat():
         agent_avatar = chat_data["agent_avatar"]
 
         # load session state
-        #st_session_state_str_rep = chat_data["session_state"]
-        #st_session_state_bytes_rep = base64.b64decode(st_session_state_str_rep.encode('utf-8'))
-        #st.session_state = dill.loads(st_session_state_bytes_rep)
+        st_session_state_str_rep = chat_data["session_state"]
+        st_session_state_bytes_rep = base64.b64decode(st_session_state_str_rep.encode('utf-8'))
+        st.session_state = dill.loads(st_session_state_bytes_rep)
 
         # load other metadata
         agent_name = session_dict["agent_name"]
