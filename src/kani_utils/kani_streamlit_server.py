@@ -130,9 +130,16 @@ def _render_message(message):
         with st.chat_message("assistant", avatar="ℹ️"):
             st.write(message.text)
 
+    # if there's no tool calls, render the message as normal
     elif message.role == ChatRole.ASSISTANT and (message.tool_calls == None or message.tool_calls == []):
         with st.chat_message("assistant", avatar=current_agent_avatar):
             st.write(message.text)
+
+    # if there are tool calls, render the message, but only if message.text is not None or empty
+    elif message.role == ChatRole.ASSISTANT and message.tool_calls is not None and message.tool_calls != []:
+        if message.content is not None and message.content != "" and message.content != []:
+            with st.chat_message("assistant", avatar=current_agent_avatar):
+                st.write(message.text)
     
     return current_action
 
@@ -183,9 +190,9 @@ async def _process_input(prompt):
             info = {"session_id": session_id, "message": message.model_dump(), "agent": st.session_state.current_agent_name}
             st.session_state.logger.info(info)
 
+            # add each message to the agent's display messages - there may be multiple if for example a function call and context message?
+            agent.display_messages.append(message)
 
-    # add the last message to the display
-    agent.display_messages.append(messages[-1])
     # then any delayed UI-based messages
     agent.render_delayed_messages()
     
