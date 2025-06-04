@@ -56,12 +56,12 @@ engine = OpenAIEngine(os.environ["OPENAI_API_KEY"], model="gpt-4o")
 # cost is in dollars per 1000000 tokens
 def get_agents():
     return {
-            "Author Search Agent": AuthorSearchKani(engine, prompt_tokens_cost = 0.005, completion_tokens_cost = 0.015),
+            "Author Search Agent": AuthorSearchKani(engine, prompt_tokens_cost = 5, completion_tokens_cost = 20),
             "Author Search Agent (No costs shown)": AuthorSearchKani(engine),
-            "Memory Agent": MemoryKani(engine, prompt_tokens_cost = 0.005, completion_tokens_cost = 0.015),
-            "File Agent": FileKani(engine, prompt_tokens_cost = 0.005, completion_tokens_cost = 0.015),
-            "Table Agent": TableKani(engine, prompt_tokens_cost = 0.005, completion_tokens_cost = 0.015),
-            "Editable System Prompt": SystemPromptEditorKani(engine, prompt_tokens_cost = 0.005, completion_tokens_cost = 0.015),
+            "Memory Agent": MemoryKani(engine, prompt_tokens_cost = 5, completion_tokens_cost = 20),
+            "File Agent": FileKani(engine, prompt_tokens_cost = 5, completion_tokens_cost = 20),
+            "Table Agent": TableKani(engine, prompt_tokens_cost = 5, completion_tokens_cost = 20),
+            "Editable System Prompt": SystemPromptEditorKani(engine, prompt_tokens_cost = 5, completion_tokens_cost = 20),
            }
 
 
