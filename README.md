@@ -257,7 +257,8 @@ Use Streamlit's [publishing functionality](https://docs.streamlit.io/deploy/stre
 
 
 # Changelog
- - 1.7.0: Add `share_func` to `render_in_streamlit_chat` to allow for backup rendering functions in cases where the primary rendering function is not serializable
+ - 1.8.0: Add `utils.full_round_sync` for convenient synchronous running (for evaluation etc.); see `sync_example.py`.
+ - 1.7.0: Add `share_func` to `render_in_streamlit_chat` to allow for backup rendering functions in cases where the primary rendering function is not serializable (this is kind of a hack; a better strategy is needed to support rendering in shared chats)
  - 1.6.0: Change cost to dollars per million tokens
  - 1.5.0: 
    - Add features for saving system state on chat share (currently unused)

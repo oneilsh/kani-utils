@@ -3,6 +3,7 @@ from typing import Generator
 from kani.streaming import StreamManager
 import nest_asyncio
 
+
 def _seconds_to_days_hours(ttl_seconds):
     # we need to convert the time to a human-readable format, e.g. 28 days, 18 hours (rounded to nearest hour)
     # we don't want the default datetime.timedelta format
@@ -51,3 +52,14 @@ def _sync_generator_from_kani_streammanager(kani_stream: StreamManager) -> Gener
     return generator()
 
 
+def full_round_sync(agent, prompt):
+    """
+    Runs a full round of the agent synchronously.
+    Returns a generator that yields messages as they are produced.
+    """
+    kani_stream = agent.full_round(prompt)
+    gen = _sync_generator_from_kani_streammanager(kani_stream)
+    if gen is not None:
+        return [msg for msg in gen]
+    else:
+        return []
