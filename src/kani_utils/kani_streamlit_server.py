@@ -230,8 +230,8 @@ def _clear_chat_current_agent():
     current_agent = st.session_state.agents[st.session_state.current_agent_name]
     current_agent.display_messages = []
     current_agent.delayed_display_messages = []
-    current_agent.tokens_used_prompt = 0
-    current_agent.tokens_used_completion = 0
+    current_agent.engine.tokens_used_prompt = 0
+    current_agent.engine.tokens_used_completion = 0
     current_agent.chat_history = []
 
 
