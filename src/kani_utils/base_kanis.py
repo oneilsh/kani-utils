@@ -11,8 +11,6 @@ class EnhancedKani(Kani):
                  description = "A brief description of the agent, shown in the user interface.",
                  avatar = "🤖",
                  user_avatar = "👤",
-                 prompt_tokens_cost = None,
-                 completion_tokens_cost = None,
                  **kwargs):
         
         super().__init__(*args, **kwargs)
@@ -23,28 +21,34 @@ class EnhancedKani(Kani):
         self.avatar = avatar
         self.user_avatar = user_avatar
 
-        self.prompt_tokens_cost = prompt_tokens_cost
-        self.completion_tokens_cost = completion_tokens_cost
-        self.tokens_used_prompt = 0
-        self.tokens_used_completion = 0
 
     def update_system_prompt(self, system_prompt):
         """Update the system prompt of the agent."""
         self.system_prompt = system_prompt
         self.always_included_messages = [ChatMessage(role="system", content=system_prompt)]
             
-    def get_convo_cost(self):
-        """Get the total cost of the conversation so far."""
-        if self.prompt_tokens_cost is None or self.completion_tokens_cost is None:
-            return None
-        
-        return (self.tokens_used_prompt / 1000000.0) * self.prompt_tokens_cost + (self.tokens_used_completion / 1000000.0) * self.completion_tokens_cost
 
     # https://github.com/zhudotexe/kani/issues/29#issuecomment-2140905232
     async def add_completion_to_history(self, completion):
-        self.tokens_used_prompt += completion.prompt_tokens
-        self.tokens_used_completion += completion.completion_tokens
+        # if self.engine is a CostAwareEngine, we need to add the tokens used to the cost tracker
+        if hasattr(self.engine, 'add_tokens_used'):
+            self.engine.add_tokens_used(completion.prompt_tokens, completion.completion_tokens)
+
         return await super().add_completion_to_history(completion)
+    
+
+    def get_convo_cost(self):
+        """Get the total cost of the conversation so far. This may be overridden to provide a custom cost calculation (e.g. when using [sub-kanis](https://kani.readthedocs.io/en/latest/advanced/subkani.html))."""
+        if hasattr(self.engine, 'get_convo_cost'):
+            return self.engine.get_convo_cost()
+        return None
+    
+
+    def get_convo_tokens(self):
+        """Get the total number of tokens used in the conversation so far. This may be overridden to provide a custom token count (e.g. when using [sub-kanis](https://kani.readthedocs.io/en/latest/advanced/subkani.html))."""
+        if hasattr(self.engine, 'tokens_used_prompt') and hasattr(self.engine, 'tokens_used_completion'):
+            return {"prompt_tokens": self.engine.tokens_used_prompt, "completion_tokens": self.engine.tokens_used_completion}
+        return None
 
 
 class StreamlitKani(EnhancedKani):
@@ -56,8 +60,6 @@ class StreamlitKani(EnhancedKani):
 
         self.display_messages = []
         self.delayed_display_messages = []
-        # not working
-        #self.buttons = []
 
 
     def render_in_streamlit_chat(self, func, delay = True, share_func = None):
@@ -78,9 +80,9 @@ class StreamlitKani(EnhancedKani):
         st.markdown(self.description)
 
         cost = self.get_convo_cost()
+        tokens = self.get_convo_tokens()
 
         if cost is not None:
-
             st.markdown(f"""
-                        ### Conversation Cost: ${(0.01 + cost if cost > 0 else 0.00):.2f}
-                        """, help = f"""Prompt tokens: {self.tokens_used_prompt}, Completion tokens: {self.tokens_used_completion}""")
+                        ### Session Cost: ${(0.01 + cost if cost > 0 else 0.00):.2f}
+                        """, help = f"""Prompt tokens: {tokens["prompt_tokens"]}, Completion tokens: {tokens["completion_tokens"]}""")
