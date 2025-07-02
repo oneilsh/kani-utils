@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kani-utils"
-version = "1.8.1"
+version = "1.8.2"
 description = "kani-utils"
 authors = ["Shawn T. O'Neil <shawn@tislab.org>"]
 license = "MIT"

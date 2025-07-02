@@ -451,7 +451,7 @@ def _render_shared_chat():
         st.header(agent_name)
 
         with st.chat_message("assistant", avatar = agent_avatar):
-            st.write(agent_greeting)
+            st.write(agent_greeting, unsafe_allow_html=True)
 
         for message in display_messages:
             _render_message(message)
@@ -476,7 +476,7 @@ async def _main():
         st.header(current_agent.name)
 
         with st.chat_message("assistant", avatar = current_agent.avatar):
-            st.write(current_agent.greeting)
+            st.write(current_agent.greeting, unsafe_allow_html=True)
 
         # not working...
         # def _send_button_to_chat(button_text):

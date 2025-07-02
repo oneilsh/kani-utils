@@ -257,6 +257,7 @@ Use Streamlit's [publishing functionality](https://docs.streamlit.io/deploy/stre
 
 
 # Changelog
+ - 1.8.2: Add `unsafe_allow_html=True` to agent greeting render.
  - 1.8.1: Moved cost tracking to a `CostAwareEngine` (an instance of [`WrapperEngine`](https://kani.readthedocs.io/en/latest/engine_reference.html#kani.engines.WrapperEngine)) allowing for more flexible tracking.
  - 1.8.0: Add `utils.full_round_sync` for convenient synchronous running (for evaluation etc.); see `sync_example.py`.
  - 1.7.0: Add `share_func` to `render_in_streamlit_chat` to allow for backup rendering functions in cases where the primary rendering function is not serializable (this is kind of a hack; a better strategy is needed to support rendering in shared chats)
