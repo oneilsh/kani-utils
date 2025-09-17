@@ -187,8 +187,8 @@ async def _process_input(prompt):
             messages.append(message)
 
             # logging
-            info = {"session_id": session_id, "message": message.model_dump(), "agent": st.session_state.current_agent_name}
-            st.session_state.logger.info(info)
+            #info = {"session_id": session_id, "message": message.model_dump(), "agent": st.session_state.current_agent_name}
+            #st.session_state.logger.info(info)
 
             # add each message to the agent's display messages - there may be multiple if for example a function call and context message?
             agent.display_messages.append(message)
